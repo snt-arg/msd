@@ -3,3 +3,5 @@ data/
 swiss-dwellings-v3.0.0/
 __pycache__/
 swiss-dwellings-v3.0.0.zip
+.DS_Store
+.venv/
