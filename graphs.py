@@ -1,7 +1,7 @@
 from itertools import combinations
 import numpy as np
 from shapely import wkt
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
 import torch
 import networkx as nx
 
@@ -98,3 +98,119 @@ def get_geometries_from_id(df, floor_id, column='zoning'):
     geoms, geoms_type = zip(*df_floor[["geom", column]].values)
 
     return geoms, geoms_type
+
+# For each segment of the room geometry, find the midpoint and inward-pointing normal
+def get_segment_normals_toward_inside(geom, epsilon=1e-3):
+    """
+    Input:
+        geom: A GeoDataFrame row containing a polygon geometry and attributes like 'elevation' and 'height'.
+        epsilon: A small value to test the inward direction of the normal vector (default is 1e-3).
+    Output:
+        A list of dictionaries, where each dictionary contains:
+            - 'center': The 3D coordinates of the midpoint of a segment.
+            - 'normal': The 3D inward-pointing normal vector of the segment.
+    Computes the midpoints and inward-facing normal vectors of each segment of the polygon's exterior boundary.
+    The normals are adjusted to point towards the interior of the polygon.
+    """
+
+    polygon = geom.geometry
+
+    coords = list(polygon.exterior.coords)
+    results = []
+
+    # get elevation and height of the room
+    elevation = geom['elevation']
+    height = geom['height']
+    z = (elevation + height) / 2
+
+    for i in range(len(coords) - 1):  # -1 because the last point repeats the first
+        p1 = np.array(coords[i])
+        p2 = np.array(coords[i + 1])
+
+        # Midpoint of the segment
+        midpoint = (p1 + p2) / 2
+
+        # Edge vector
+        edge_vec = p2 - p1
+
+        # Perpendicular normal (rotated 90°)
+        normal = np.array([-edge_vec[1], edge_vec[0]])
+
+        # Normalize the normal vector
+        normal /= np.linalg.norm(normal)
+
+        # Test point slightly offset in the direction of the normal
+        p_test = midpoint + epsilon * normal
+
+        # If the point is NOT inside the polygon, invert the normal direction
+        if not polygon.contains(Point(p_test)):
+            normal = -normal
+
+        #convert to 3D
+        midpoint = np.append(midpoint, z)
+        normal = np.append(normal, 0)
+
+        results.append({
+            'center': midpoint,
+            'normal': normal
+        })
+
+    return results
+
+def get_segment_normals_outward_inside_room(geom, room_geom, epsilon=1e-3):
+    """
+    For each edge of the geometry,
+    compute the midpoint and a normal vector pointing outward from the object
+    only if it remain inside the containing room.
+    
+    Input:
+        geom: A GeoDataFrame row containing a polygon geometry and attributes like 'elevation' and 'height'.
+        room_geom: The geometry of the containing room.
+        epsilon: A small value to test the outward direction of the normal vector (default is 1e-3).
+
+    Output:
+        A dictionary containing:
+            - 'midpoint': The 3D coordinates of the midpoint of a segment.
+            - 'normal': The 3D outward-pointing normal vector of the segment, constrained to remain inside the room.
+    """
+
+    polygon = geom.geometry
+    coords = list(polygon.exterior.coords)
+    results = {}
+    
+    # get elevation and height of the geom
+    elevation = geom['elevation']
+    height = geom['height']
+    z = (elevation + height) / 2
+
+    for i in range(len(coords) - 1):
+        p1 = np.array(coords[i])
+        p2 = np.array(coords[i + 1])
+
+        midpoint = (p1 + p2) / 2
+        edge_vec = p2 - p1
+        normal = np.array([-edge_vec[1], edge_vec[0]])
+        normal /= np.linalg.norm(normal)
+
+        test_point = midpoint + epsilon * normal
+
+        # Check if the normal is outward from the object
+        if polygon.contains(Point(test_point)):
+            normal = -normal  # flip the direction if it's pointing inward or outside the room
+
+        # Check if the normal is inside the room
+        if not room_geom.contains(Point(midpoint + epsilon * normal)):
+            normal = [0, 0]  # set to zero if it's not inside the room
+        
+        # Append the result only if the normal is not zero
+        if np.linalg.norm(normal) > 0: 
+            #convert to 3D
+            midpoint = np.append(midpoint, z)
+            normal = np.append(normal, 0)
+
+            results = {
+                'midpoint': midpoint,
+                'normal': normal
+            }
+
+    return results
