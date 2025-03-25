@@ -48,3 +48,24 @@ def find_floor_boundary(polygons):
             max_y = bounds[3]
 
     return min_x, min_y, max_x, max_y
+
+# given an area geometry, walls geometry, openings geometry, and a boxing parameter (padding) fearch for interesections
+def find_intersections(area, walls, openings, padding=0.01):
+    """
+    Given an area geometry, walls geometry, openings geometry, and a boxing parameter (padding),
+    search for intersections and return a GeoDataFrame with walls and openings that intersect,
+    preserving the original structure of the input GeoDataFrames.
+    """
+    # Expand the area polygon by the padding
+    box = area.buffer(padding)
+    
+    # Filter walls that intersect with the area
+    area_walls = walls[walls.intersects(box)].copy()
+    
+    # Filter openings that intersect with the area
+    area_openings = openings[openings.intersects(box)].copy()
+    
+    # Combine walls and openings into a single GeoDataFrame
+    result = pd.concat([area_walls, area_openings], ignore_index=True)
+    
+    return result
