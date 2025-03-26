@@ -3,6 +3,8 @@ from matplotlib.cm import get_cmap
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon
 import networkx as nx
+import matplotlib.colors as mcolors
+
 
 from constants import ZONING_NAMES, CMAP_ZONING, CMAP_ROOMTYPE
 
@@ -170,4 +172,23 @@ def plot_room_graph(apartment, G, plot_normals=False):
 
     plt.title("Apartment with geometries, wall segments, and edges in 2D")
     plt.legend()
+    plt.show()
+
+def plot_DF_geometries(floor_DF):
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    # Plot by entity_type
+    floor_DF.plot(ax=axs[0], column='entity_type', legend=True)
+    axs[0].set_title('Rooms, Separators, and Openings by Type')
+
+    # Plot by entity_subtype
+    # Generate a unique color for each subtype
+    unique_subtypes = floor_DF['entity_subtype'].unique()
+    subtype_colors = {subtype: plt.cm.tab20(i / len(unique_subtypes)) for i, subtype in enumerate(unique_subtypes)}
+
+    # Plot by entity_subtype with custom colors
+    floor_DF.plot(ax=axs[1], column='entity_subtype', legend=True, cmap=mcolors.ListedColormap([subtype_colors[subtype] for subtype in unique_subtypes]))
+    axs[1].set_title('Rooms, Separators, and Openings by Subtype')
+
+    plt.tight_layout()
     plt.show()
