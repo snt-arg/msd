@@ -165,7 +165,7 @@ def get_segment_normals_toward_inside(geom, epsilon=1e-3):
 
     return results
 
-def add_room_geometries(geom, G, epsilon=1e-3):
+def add_room_geometries(geom_dict, floor_id, apartment_id, G, epsilon=1e-3):
     """
     Creates a directed graph (DiGraph) from the segments of the outer contour of a polygon.
     Each node represents the midpoint of a segment and contains the inward normal in 3D.
@@ -173,21 +173,23 @@ def add_room_geometries(geom, G, epsilon=1e-3):
     Edges connect consecutive wall segment nodes and link each segment to the room centroid.
 
     Input:
-        geom: A row of a GeoDataFrame containing a polygon and attributes 'elevation' and 'height'.
+        geom_dict: A dictionary containing 'geom' (Polygon), 'entity_subtype' (str), and 'z' (float).
         G: A directed graph (DiGraph) to which the nodes and edges will be added.
         epsilon: Value to verify the direction of the normal (default 1e-3).
     """
 
-    polygon = geom.geometry
+    polygon = geom_dict['geom']
     coords = list(polygon.exterior.coords)
-    elevation = geom['elevation']
-    height = geom['height']
-    z = (elevation + height) / 2
+    z = geom_dict['z']
+    category = geom_dict['category']
+    category_letter = geom_dict['entity_subtype']
+
 
     # Create a node for the room with the room ID and the centroid
-    #TODO it's not unique this id
-    room_id = f"apartment_{geom['apartment_id']}_room_{geom['entity_subtype']}_centroid"
-    G.add_node(room_id, center=[polygon.centroid.x, polygon.centroid.y, z], normal=[0, 0, 0], type='room')
+    room_id = f"{floor_id}_{apartment_id}_{category_letter}_centroid"
+    #TODO: maybe its better to change change z and set the norm of z norm = 1 or something else
+    G.add_node(room_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
+                normal=[0, 0, 0], type='room', category= category, category_letter = category_letter)
 
     node_ids = []
 
@@ -214,83 +216,100 @@ def add_room_geometries(geom, G, epsilon=1e-3):
         midpoint_3d = np.append(midpoint, z)
         normal_3d = np.append(normal, 0)
 
-        node_id = f"apartment_{geom['apartment_id']}_room_{geom['entity_subtype']}_ws_{i}"
+        node_id = f"{floor_id}_{apartment_id}_{category_letter}_ws_{i}"
         node_ids.append(node_id)
 
-        G.add_node(node_id, center=midpoint_3d, normal=normal_3d, type='ws')
+        G.add_node(node_id, center=midpoint_3d.tolist(), normal=normal_3d.tolist(), type='ws')
 
     # Add edges between consecutive segments and the room centroid
     for i in range(len(node_ids) - 1):
         G.add_edge(node_ids[i], node_ids[i + 1], type='ws_same_room')
         G.add_edge(node_ids[i], room_id, type='ws_belong_room')
 
-    # close the loop by connecting last to first
+    # Close the loop by connecting last to first
     G.add_edge(node_ids[-1], node_ids[0], type='ws_same_room')
     G.add_edge(node_ids[-1], room_id, type='ws_belong_room')
 
     return
 
-def add_opening_geometry(geoms_df, room_geom, G, epsilon=1e-3):
+def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, windows_z, room_dict, floor_id, apartment_id, G, epsilon=1e-3):
     """
     Adds nodes and edges for openings (e.g., doors, windows) to a directed graph (DiGraph).
     Each node represents the midpoint of a segment of the opening and contains the outward normal in 3D,
     constrained to remain inside the containing room.
 
     Input:
-        geoms_df: A GeoDataFrame containing polygons and attributes like 'elevation' and 'height'.
-        room_geom: A GeoDataFrame containing the geometry of the containing room.
+        doors: A list of Polygon geometries representing the doors.
+        windows: A list of Polygon geometries representing the windows.
+        door_indexes: A list of indexes to access the doors of interest.
+        window_indexes: A list of indexes to access the windows of interest.
+        doors_z: A list of z-values (elevation) corresponding to the doors.
+        windows_z: A list of z-values (elevation) corresponding to the windows.
+        room_dict: A dictionary containing 'geom' (Polygon), 'entity_subtype' (str), 'category' (int), and 'z' (float).
+        floor_id: The floor ID.
+        apartment_id: The apartment ID.
         G: A directed graph (DiGraph) to which the nodes and edges will be added.
         epsilon: Value to verify the direction of the normal (default 1e-3).
     """
 
-    room_polygon = room_geom.geometry.iloc[0]  # Extract the room geometry
+    room_polygon = room_dict['geom']  # Extract the room geometry
+    room_category = room_dict['category']
+    room_entity_subtype = room_dict['entity_subtype']
+    room_z = room_dict['z']
 
-    for _, geom in geoms_df.iterrows():
-        polygon = geom.geometry
-        coords = list(polygon.exterior.coords)
-        elevation = geom['elevation']
-        height = geom['height']
-        z = (elevation + height) / 2
+    def process_openings(openings, opening_indexes, openings_z, opening_type):
+        for idx in opening_indexes:
+            polygon = openings[idx]
+            coords = list(polygon.exterior.coords)
+            z = openings_z[idx]
 
-        opening_id = f"apartment_{geom['apartment_id']}_opening_{geom['entity_subtype']}"
-        node_ids = []
+            opening_id = f"{floor_id}_{apartment_id}_{opening_type}_{idx}"
+            node_ids = []
 
-        for i in range(len(coords) - 1):
-            p1 = np.array(coords[i])
-            p2 = np.array(coords[i + 1])
+            for i in range(len(coords) - 1):
+                p1 = np.array(coords[i])
+                p2 = np.array(coords[i + 1])
 
-            # Midpoint of the segment
-            midpoint = (p1 + p2) / 2
+                # Midpoint of the segment
+                midpoint = (p1 + p2) / 2
 
-            # Edge vector
-            edge_vec = p2 - p1
+                # Edge vector
+                edge_vec = p2 - p1
 
-            # Perpendicular normal
-            normal = np.array([-edge_vec[1], edge_vec[0]])
-            normal /= np.linalg.norm(normal)
+                # Perpendicular normal
+                normal = np.array([-edge_vec[1], edge_vec[0]])
+                normal /= np.linalg.norm(normal)
 
-            # Test outward direction
-            test_point = midpoint + epsilon * normal
-            if polygon.contains(Point(test_point)):
-                normal = -normal  # flip the direction if it's pointing inward or outside the room
+                # Test outward direction
+                test_point = midpoint + epsilon * normal
+                if polygon.contains(Point(test_point)):
+                    normal = -normal  # flip the direction if it's pointing inward or outside the room
 
-            # Check if the normal is inside the room
-            if not room_polygon.contains(Point(midpoint + epsilon * normal)):
-                normal = [0, 0]  # set to zero if it's not inside the room
+                # Check if the normal is inside the room
+                if not room_polygon.contains(Point(midpoint + epsilon * normal)):
+                    normal = [0, 0]  # set to zero if it's not inside the room
 
-            # Add the node only if the normal is valid
-            if np.linalg.norm(normal) > 0:
-                midpoint_3d = np.append(midpoint, z)
-                normal_3d = np.append(normal, 0)
+                # Add the node only if the normal is valid
+                if np.linalg.norm(normal) > 0:
+                    midpoint_3d = np.append(midpoint, z)
+                    normal_3d = np.append(normal, 0)
 
-                node_id = f"{opening_id}_{i}"
-                node_ids.append(node_id)
+                    node_id = f"{opening_id}_{i}"
+                    node_ids.append(node_id)
 
-                G.add_node(node_id, center=midpoint_3d, normal=normal_3d, type='opening')
+                    G.add_node(node_id, center=midpoint_3d.tolist(), normal=normal_3d, type=opening_type)
 
-        # Add edges to the room centroid
-        for node_id in node_ids:
-            G.add_edge(node_id, f"apartment_{geom['apartment_id']}_room_{room_geom.iloc[0]['entity_subtype']}_centroid", type='opening_belong_room')
+            # Add edges to the room centroid
+            for node_id in node_ids:
+                G.add_edge(node_id, f"{floor_id}_{apartment_id}_{room_entity_subtype}_centroid", type=f'{opening_type}_belong_room')
+    
+    # Process doors if not empty
+    if doors:
+        process_openings(doors, door_indexes, doors_z, 'door')
+
+    # Process windows if not empty
+    if windows:
+        process_openings(windows, window_indexes, windows_z, 'window')
 
     return
 
@@ -453,7 +472,8 @@ def extract_a_graph(geoms, cats, names, apartment_id, floor_id):
         # (Option 1) Passage (i.e., direct access := no wall in between)
         if v1.distance(v2) < 0.04:
             aedges.append([i, j, {'polygon': None, 'connectivity': 'passage'}])
-
+        
+        # TODO connect rooms through doors and windows nodes
         # (Option 2) Door (i.e., door in between two rooms)
         else:
             edge = False
