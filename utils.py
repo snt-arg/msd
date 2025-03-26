@@ -51,22 +51,22 @@ def find_floor_boundary(polygons):
     return min_x, min_y, max_x, max_y
 
 # given an area geometry, walls geometry, openings geometry, and a boxing parameter (padding) fearch for interesections
-def find_intersections(area, walls, openings, padding=0.01):
+def find_intersections(area, walls, doors, windows, padding=0.01):
     """
-    Given an area geometry, walls geometry, openings geometry, and a boxing parameter (padding),
-    search for intersections and return a GeoDataFrame with walls and openings that intersect,
-    preserving the original structure of the input GeoDataFrames.
+    Given an area geometry, walls geometry, doors geometry, windows geometry (all as lists of geometries),
+    and a boxing parameter (padding), search for intersections and return the indexes of geometries
+    that intersect with the area.
     """
     # Expand the area polygon by the padding
     box = area.buffer(padding)
     
-    # Filter walls that intersect with the area
-    area_walls = walls[walls.intersects(box)].copy()
+    # Get indexes of walls that intersect with the area
+    area_walls_indexes = [i for i, wall in enumerate(walls) if wall.intersects(box)]
     
-    # Filter openings that intersect with the area
-    area_openings = openings[openings.intersects(box)].copy()
+    # Get indexes of doors that intersect with the area
+    area_doors_indexes = [i for i, door in enumerate(doors) if door.intersects(box)]
     
-    # Combine walls and openings into a single GeoDataFrame
-    result = pd.concat([area_walls, area_openings], ignore_index=True)
+    # Get indexes of windows that intersect with the area
+    area_windows_indexes = [i for i, window in enumerate(windows) if window.intersects(box)]
     
-    return result
+    return area_walls_indexes, area_doors_indexes, area_windows_indexes
