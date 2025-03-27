@@ -165,7 +165,7 @@ def get_segment_normals_toward_inside(geom, epsilon=1e-3):
 
     return results
 
-def add_room_geometries(geom_dict, floor_id, apartment_id, G, epsilon=1e-3):
+def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3):
     """
     Creates a directed graph (DiGraph) from the segments of the outer contour of a polygon.
     Each node represents the midpoint of a segment and contains the inward normal in 3D.
@@ -186,7 +186,7 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, G, epsilon=1e-3):
 
 
     # Create a node for the room with the room ID and the centroid
-    room_id = f"{floor_id}_{apartment_id}_{category_letter}_centroid"
+    room_id = f"{floor_id}_{apartment_id}_{category_letter}{key}_centroid"
     #TODO: maybe its better to change change z and set the norm of z norm = 1 or something else
     G.add_node(room_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
                 normal=[0, 0, 0], type='room', category= category, category_letter = category_letter)
@@ -216,7 +216,7 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, G, epsilon=1e-3):
         midpoint_3d = np.append(midpoint, z)
         normal_3d = np.append(normal, 0)
 
-        node_id = f"{floor_id}_{apartment_id}_{category_letter}_ws_{i}"
+        node_id = f"{floor_id}_{apartment_id}_{category_letter}{key}_ws_{i}"
         node_ids.append(node_id)
 
         G.add_node(node_id, center=midpoint_3d.tolist(), normal=normal_3d.tolist(), type='ws')
@@ -232,7 +232,7 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, G, epsilon=1e-3):
 
     return
 
-def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, windows_z, room_dict, floor_id, apartment_id, G, epsilon=1e-3):
+def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, windows_z, room_dict, floor_id, apartment_id, key, G, epsilon=1e-3):
     """
     Adds nodes and edges for openings (e.g., doors, windows) to a directed graph (DiGraph).
     Each node represents the midpoint of a segment of the opening and contains the outward normal in 3D,
@@ -253,9 +253,8 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
     """
 
     room_polygon = room_dict['geom']  # Extract the room geometry
-    room_category = room_dict['category']
     room_entity_subtype = room_dict['entity_subtype']
-    room_z = room_dict['z']
+    room_id = f"{floor_id}_{apartment_id}_{room_entity_subtype}{key}_centroid"
 
     def process_openings(openings, opening_indexes, openings_z, opening_type):
         for idx in opening_indexes:
@@ -301,7 +300,7 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
 
             # Add edges to the room centroid
             for node_id in node_ids:
-                G.add_edge(node_id, f"{floor_id}_{apartment_id}_{room_entity_subtype}_centroid", type=f'{opening_type}_belong_room')
+                G.add_edge(node_id, room_id, type=f'{opening_type}_belong_room')
     
     # Process doors if not empty
     if doors:
