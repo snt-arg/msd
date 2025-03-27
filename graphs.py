@@ -186,10 +186,10 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
 
 
     # Create a node for the room with the room ID and the centroid
-    room_id = f"{floor_id}_{apartment_id}_{category_letter}{key}_centroid"
+    room_id = f"{floor_id}_{apartment_id}_{category_letter}_{key}_centroid"
     #TODO: maybe its better to change change z and set the norm of z norm = 1 or something else
     G.add_node(room_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
-                normal=[0, 0, 0], type='room', category= category, category_letter = category_letter)
+                normal=[0, 0, 0], type='room', category=category, category_letter = category_letter)
 
     node_ids = []
 
@@ -216,10 +216,11 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
         midpoint_3d = np.append(midpoint, z)
         normal_3d = np.append(normal, 0)
 
-        node_id = f"{floor_id}_{apartment_id}_{category_letter}{key}_ws_{i}"
+        node_id = f"{floor_id}_{apartment_id}_{category_letter}_{key}_ws_{i}"
         node_ids.append(node_id)
+        # Create a polygon with p1 and p2
 
-        G.add_node(node_id, center=midpoint_3d.tolist(), normal=normal_3d.tolist(), type='ws')
+        G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])), center=midpoint_3d.tolist(), normal=normal_3d.tolist(), type='ws', category=9)
 
     # Add edges between consecutive segments and the room centroid
     for i in range(len(node_ids) - 1):
@@ -254,7 +255,7 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
 
     room_polygon = room_dict['geom']  # Extract the room geometry
     room_entity_subtype = room_dict['entity_subtype']
-    room_id = f"{floor_id}_{apartment_id}_{room_entity_subtype}{key}_centroid"
+    room_id = f"{floor_id}_{apartment_id}_{room_entity_subtype}_{key}_centroid"
 
     def process_openings(openings, opening_indexes, openings_z, opening_type):
         for idx in opening_indexes:
@@ -296,7 +297,7 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
                     node_id = f"{opening_id}_{i}"
                     node_ids.append(node_id)
 
-                    G.add_node(node_id, center=midpoint_3d.tolist(), normal=normal_3d, type=opening_type)
+                    G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])), center=midpoint_3d.tolist(), normal=normal_3d, type=opening_type, category=9)
 
             # Add edges to the room centroid
             for node_id in node_ids:
@@ -522,3 +523,20 @@ def extract_a_graph(geoms, cats, names, apartment_id, floor_id):
     AG.add_edges_from(aedges)
 
     return AG
+
+def connect_area_by_openings(graph,apartment_id):
+    for opening in ["door", "window"]:
+        # Extract unique opening IDs
+        ids = list(set(v.split("_")[2] + "_" + v.split("_")[3] 
+                       for u, v in graph.edges() if opening in u or opening in v))
+
+        for id in ids:
+            # Find areas connected by the current opening
+            connected_areas = [u.split("_")[2] + "_" + u.split("_")[3] 
+                               for u, v in graph.edges() if id in u or id in v]
+
+            # Create edges between all pairs of connected areas
+            for i, j in combinations(connected_areas, 2):
+                room1 = apartment_id + "_" + i + "_centroid"
+                room2 = apartment_id + "_" + j + "_centroid"
+                graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
