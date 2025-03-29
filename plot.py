@@ -115,62 +115,97 @@ def plot_floor(G, ax, node_size=50, edge_size=3):
     edges = [(u, v) for (u, v, d) in G.edges(data="connectivity") if d == "entrance"]
     nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color='red',
                            width=edge_size*2, ax=ax)
-    
-def plot_room_graph(apartment, G, plot_normals=False):
+
+def plot_a_graph(graphs_list, viz_rooms=True, viz_walls=True, viz_openings=False, viz_room_connection=True, viz_normals=False):
     """
-    Visualizes all geometries in the apartment, their wall segments, and graph edges in 2D.
+    Visualizes geometries, wall segments, and graph edges for multiple apartments in 2D.
 
     Parameters:
-    apartment (pd.DataFrame): DataFrame with room geometries.
-    G (nx.Graph): Graph with nodes ('type', 'center', 'normal') and edges.
-    plot_normals (bool): If True, plots wall segment normals.
+    graphs_list (list of networkx.Graph): List of graphs with nodes ('type', 'center', 'normal') and edges for the apartments.
+    viz_normals (bool): If True, plots wall segment normals.
+    viz_rooms (bool): If True, displays room polygons.
+    viz_walls (bool): If True, displays wall segments.
+    viz_openings (bool): If True, displays openings (doors and windows).
+    viz_wall_edges (bool): If True, displays edges between wall segments.
+    viz_connection_edges (bool): If True, displays edges connecting rooms via openings.
 
-    Returns:
-    None: Displays the plot.
     """
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    _, ax = plt.subplots(1, 1, figsize=(10, 10))
+    legend_added = False  # Flag to ensure the legend is added only once
+    normal_added = False  # Flag to ensure the "Normal" label is added only once
 
-    # Draw all room polygons
-    for idx, row in apartment.iterrows():
-        room_polygon = Polygon(row.geometry.exterior.coords)
-        x, y = room_polygon.exterior.xy
-        ax.plot(x, y, color='black', label='Room polygon' if idx == 0 else "")
+    for graphs in graphs_list:
+        # Visualize room polygons
+        if viz_rooms:
+            room_nodes = [n for n, d in graphs.nodes(data=True) if d['type'] == 'room']
+            for idx, room_node in enumerate(room_nodes):
+                room_data = graphs.nodes[room_node]
+                room_polygon = Polygon(room_data['polygon'])
+                x, y = room_polygon.exterior.xy
+                ax.plot(x, y, color='black', label='Room polygon' if not legend_added and idx == 0 else "")
 
-    # Draw the room centroids
-    room_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'room']
-    for idx, room_node in enumerate(room_nodes):
-        room_data = G.nodes[room_node]
-        ax.scatter(room_data['center'][0], room_data['center'][1], color='blue', s=100, label='Room centroid' if idx == 0 else "")
+            # Draw room centroids
+            for idx, room_node in enumerate(room_nodes):
+                room_data = graphs.nodes[room_node]
+                ax.scatter(room_data['center'][0], room_data['center'][1], color='blue', s=100, label='Room centroid' if not legend_added and idx == 0 else "")
 
-    # Draw the wall segments and their normals
-    wall_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'ws']
-    for idx, wn in enumerate(wall_nodes):
-        wall_data = G.nodes[wn]
-        ax.scatter(wall_data['center'][0], wall_data['center'][1], color='red', s=50, label='Wall segment' if idx == 0 else "")
-        if plot_normals:
-            ax.arrow(wall_data['center'][0], wall_data['center'][1],
-                     wall_data['normal'][0], wall_data['normal'][1],
-                     head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not plot_normals else "")      
-    
-    # Draw the opening and their normals
-    opening_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'opening']
-    for idx, on in enumerate(opening_nodes):
-        opening_data = G.nodes[on]
-        ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening' if idx == 0 else "")
-        if plot_normals:
-            ax.arrow(opening_data['center'][0], opening_data['center'][1],
-                     opening_data['normal'][0], opening_data['normal'][1],
-                     head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not plot_normals else "") 
+        # Visualize wall segments
+        if viz_walls:
+            wall_nodes = [n for n, d in graphs.nodes(data=True) if d['type'] == 'ws']
+            for idx, wn in enumerate(wall_nodes):
+                wall_data = graphs.nodes[wn]
+                ax.scatter(wall_data['center'][0], wall_data['center'][1], color='red', s=50, label='Wall segment' if not legend_added and idx == 0 else "")
+                if viz_normals:
+                    ax.arrow(wall_data['center'][0], wall_data['center'][1],
+                             wall_data['normal'][0], wall_data['normal'][1],
+                             head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
+                    normal_added = True
 
-    # Draw edges
-    for idx, edge in enumerate(G.edges(data=True)):
-        start_node = G.nodes[edge[0]]
-        end_node = G.nodes[edge[1]]
-        ax.plot([start_node['center'][0], end_node['center'][0]],
-                [start_node['center'][1], end_node['center'][1]],
-                color='gray', linestyle='--', label='Edge' if idx == 0 else "")
+        # Visualize openings
+        if viz_openings:
+            opening_nodes = [n for n, d in graphs.nodes(data=True) if 'door' in d['type'] or 'window' in d['type']]
+            for idx, on in enumerate(opening_nodes):
+                opening_data = graphs.nodes[on]
+                ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening' if not legend_added and idx == 0 else "")
+                if viz_normals:
+                    ax.arrow(opening_data['center'][0], opening_data['center'][1],
+                             opening_data['normal'][0], opening_data['normal'][1],
+                             head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
+                    normal_added = True
 
-    plt.title("Apartment with geometries, wall segments, and edges in 2D")
+        # Visualize wall edges
+        if viz_walls:
+            wall_edges = [(u, v) for u, v, d in graphs.edges(data=True) if 'ws' in d['type']]
+            for idx, edge in enumerate(wall_edges):
+                start_node = graphs.nodes[edge[0]]
+                end_node = graphs.nodes[edge[1]]
+                ax.plot([start_node['center'][0], end_node['center'][0]],
+                    [start_node['center'][1], end_node['center'][1]],
+                    color='gray', linestyle='--', label='Wall edge' if not legend_added and idx == 0 else "")
+                
+        #vizualize opening edges
+        if viz_openings:
+            wall_edges = [(u, v) for u, v, d in graphs.edges(data=True)  if 'door' in d['type'] or 'window' in d['type']]
+            for idx, edge in enumerate(wall_edges):
+                start_node = graphs.nodes[edge[0]]
+                end_node = graphs.nodes[edge[1]]
+                ax.plot([start_node['center'][0], end_node['center'][0]],
+                    [start_node['center'][1], end_node['center'][1]],
+                    color='blue', linestyle='--', label='Opening edge' if not legend_added and idx == 0 else "")
+
+        # Visualize connection edges
+        if viz_room_connection:
+            connection_edges = [(u, v) for u, v, d in graphs.edges(data=True) if 'connected' in d['type']]
+            for idx, edge in enumerate(connection_edges):
+                start_node = graphs.nodes[edge[0]]
+                end_node = graphs.nodes[edge[1]]
+                ax.plot([start_node['center'][0], end_node['center'][0]],
+                        [start_node['center'][1], end_node['center'][1]],
+                        color='purple', linestyle='-', label='Connection edge' if not legend_added and idx == 0 else "")
+
+        legend_added = True  # Set the flag to True after processing the first graph
+
+    plt.title("Apartment Graph Visualization")
     plt.legend()
     plt.show()
 
