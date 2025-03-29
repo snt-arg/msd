@@ -116,87 +116,63 @@ def plot_floor(G, ax, node_size=50, edge_size=3):
     nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color='red',
                            width=edge_size*2, ax=ax)
     
-def plot_room_graph(apartments, graphs, viz_normals=False, viz_rooms=True, viz_walls=True, viz_openings=True, viz_wall_edges=True, viz_connection_edges=True):
+def plot_room_graph(apartment, G, plot_normals=False):
     """
-    Visualizes geometries, wall segments, and graph edges for multiple apartments in 2D.
+    Visualizes all geometries in the apartment, their wall segments, and graph edges in 2D.
 
     Parameters:
-    apartments (list of pd.DataFrame): List of DataFrames with room geometries for each apartment.
-    graphs (list of nx.Graph): List of graphs with nodes ('type', 'center', 'normal') and edges for each apartment.
-    viz_normals (bool): If True, plots wall segment normals.
-    viz_rooms (bool): If True, displays room polygons.
-    viz_walls (bool): If True, displays wall segments.
-    viz_openings (bool): If True, displays openings (doors and windows).
-    viz_wall_edges (bool): If True, displays edges between wall segments.
-    viz_connection_edges (bool): If True, displays edges connecting rooms via openings.
+    apartment (pd.DataFrame): DataFrame with room geometries.
+    G (nx.Graph): Graph with nodes ('type', 'center', 'normal') and edges.
+    plot_normals (bool): If True, plots wall segment normals.
 
     Returns:
-    plt: The matplotlib.pyplot object for further customization or display.
+    None: Displays the plot.
     """
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-    for apartment, G in zip(apartments, graphs):
-        # Draw all room polygons
-        for idx, row in apartment.iterrows():
-            room_polygon = Polygon(row['geom'].exterior.coords)
-            x, y = room_polygon.exterior.xy
-            ax.plot(x, y, color='black', label='Room polygon' if idx == 0 else "")
+    # Draw all room polygons
+    for idx, row in apartment.iterrows():
+        room_polygon = Polygon(row.geometry.exterior.coords)
+        x, y = room_polygon.exterior.xy
+        ax.plot(x, y, color='black', label='Room polygon' if idx == 0 else "")
 
-        # Draw the room centroids
-        if viz_rooms:
-            room_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'room']
-            for idx, room_node in enumerate(room_nodes):
-                room_data = G.nodes[room_node]
-                ax.scatter(room_data['center'][0], room_data['center'][1], color='blue', s=100, label='Room centroid' if idx == 0 else "")
+    # Draw the room centroids
+    room_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'room']
+    for idx, room_node in enumerate(room_nodes):
+        room_data = G.nodes[room_node]
+        ax.scatter(room_data['center'][0], room_data['center'][1], color='blue', s=100, label='Room centroid' if idx == 0 else "")
 
-        # Draw the wall segments and their normals
-        if viz_walls:
-            wall_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'ws']
-            for idx, wn in enumerate(wall_nodes):
-                wall_data = G.nodes[wn]
-                ax.scatter(wall_data['center'][0], wall_data['center'][1], color='red', s=50, label='Wall segment' if idx == 0 else "")
-                if viz_normals:
-                    ax.arrow(wall_data['center'][0], wall_data['center'][1],
-                             wall_data['normal'][0], wall_data['normal'][1],
-                             head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not viz_normals else "")      
+    # Draw the wall segments and their normals
+    wall_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'ws']
+    for idx, wn in enumerate(wall_nodes):
+        wall_data = G.nodes[wn]
+        ax.scatter(wall_data['center'][0], wall_data['center'][1], color='red', s=50, label='Wall segment' if idx == 0 else "")
+        if plot_normals:
+            ax.arrow(wall_data['center'][0], wall_data['center'][1],
+                     wall_data['normal'][0], wall_data['normal'][1],
+                     head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not plot_normals else "")      
+    
+    # Draw the opening and their normals
+    opening_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'opening']
+    for idx, on in enumerate(opening_nodes):
+        opening_data = G.nodes[on]
+        ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening' if idx == 0 else "")
+        if plot_normals:
+            ax.arrow(opening_data['center'][0], opening_data['center'][1],
+                     opening_data['normal'][0], opening_data['normal'][1],
+                     head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not plot_normals else "") 
 
-        # Draw the openings and their normals
-        if viz_openings:
-            opening_nodes = [n for n, d in G.nodes(data=True) if d['type'] == 'door' or d['type'] == 'window']
-            for idx, on in enumerate(opening_nodes):
-                opening_data = G.nodes[on]
-                ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening' if idx == 0 else "")
-                if viz_normals:
-                    ax.arrow(opening_data['center'][0], opening_data['center'][1],
-                             opening_data['normal'][0], opening_data['normal'][1],
-                             head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if idx == 0 and not viz_normals else "") 
+    # Draw edges
+    for idx, edge in enumerate(G.edges(data=True)):
+        start_node = G.nodes[edge[0]]
+        end_node = G.nodes[edge[1]]
+        ax.plot([start_node['center'][0], end_node['center'][0]],
+                [start_node['center'][1], end_node['center'][1]],
+                color='gray', linestyle='--', label='Edge' if idx == 0 else "")
 
-        # Draw edges
-        for idx, edge in enumerate(G.edges(data=True)):
-            start_node = G.nodes[edge[0]]
-            end_node = G.nodes[edge[1]]
-            
-            # Filter edges based on visualization preferences
-            if not viz_wall_edges and ('belong' in edge[2]['type'] or 'same' in edge[2]['type']):
-                continue
-            if not viz_connection_edges and ('connected_by' in edge[2]['type']):
-                continue
-            if not viz_rooms and ('room' in start_node['type'] or 'room' in end_node['type']):
-                continue
-            if not viz_walls and ('ws' in start_node['type'] or 'ws' in end_node['type']):
-                continue
-            if not viz_openings and ('door' in start_node['type'] or 'door' in end_node['type'] or 
-                                      'window' in start_node['type'] or 'window' in end_node['type']):
-                continue
-            
-            edge_color = 'purple' if 'opening' in edge[2] else 'gray'  # Use purple for edges with 'opening'
-            ax.plot([start_node['center'][0], end_node['center'][0]],
-                    [start_node['center'][1], end_node['center'][1]],
-                    color=edge_color, linestyle='--', label='Edge' if idx == 0 else "")
-
-    plt.title("Apartments with geometries, wall segments, and edges in 2D")
+    plt.title("Apartment with geometries, wall segments, and edges in 2D")
     plt.legend()
-    return plt
+    plt.show()
 
 def plot_DF_geometries(floor_DF):
     fig, axs = plt.subplots(1, 2, figsize=(20, 10))
