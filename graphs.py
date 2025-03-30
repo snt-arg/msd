@@ -187,9 +187,9 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
 
     # Create a node for the room with the room ID and the centroid
     room_id = f"{floor_id}_{apartment_id}_{category_letter}_{key}_centroid"
-    #TODO: maybe its better to change change z and set the norm of z norm = 1 or something else
+    # Set norm z = 1 to force the difference from other nodes 
     G.add_node(room_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
-                normal=[0, 0, 0], type='room', category=category, category_letter = category_letter)
+                normal=[0, 0, 1], type='room', category=category, category_letter = category_letter)
 
     node_ids = []
 
@@ -199,6 +199,9 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
 
         # Midpoint of the segment
         midpoint = (p1 + p2) / 2
+
+        # calculate euclidean distance
+        width = np.linalg.norm(p2 - p1)
 
         # Edge vector
         edge_vec = p2 - p1
@@ -220,7 +223,8 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
         node_ids.append(node_id)
         # Create a polygon with p1 and p2
 
-        G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])), center=midpoint_3d.tolist(), normal=normal_3d.tolist(), type='ws', category=9)
+        G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])),
+                    center=midpoint_3d.tolist(), normal=normal_3d.tolist(), width=width, type='ws', category=9)
 
     # Add edges between consecutive segments and the room centroid
     for i in range(len(node_ids) - 1):
@@ -264,6 +268,11 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
             z = openings_z[idx]
 
             opening_id = f"{floor_id}_{apartment_id}_{opening_type}_{idx}"
+            
+            # Set norm z = 1 to force the difference from other nodes 
+            G.add_node(opening_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
+                        normal=[0, 0, 1], type=opening_type)
+
             node_ids = []
 
             for i in range(len(coords) - 1):
@@ -272,6 +281,9 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
 
                 # Midpoint of the segment
                 midpoint = (p1 + p2) / 2
+
+                # calculate euclidean distance
+                width = np.linalg.norm(p2 - p1)
 
                 # Edge vector
                 edge_vec = p2 - p1
@@ -297,11 +309,13 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
                     node_id = f"{opening_id}_{i}"
                     node_ids.append(node_id)
 
-                    G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])), center=midpoint_3d.tolist(), normal=normal_3d, type=opening_type, category=9)
+                    G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])),
+                                center=midpoint_3d.tolist(), normal=normal_3d, width=width,  type=opening_type, category=9)
 
             # Add edges to the room centroid
             for node_id in node_ids:
                 G.add_edge(node_id, room_id, type=f'{opening_type}_belong_room')
+                G.add_edge(node_id, opening_id, type=f'ws_belong_{opening_type}')
     
     # Process doors if not empty
     if doors:
