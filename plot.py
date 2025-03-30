@@ -160,18 +160,22 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_walls=True, viz_openings=False
                              wall_data['normal'][0], wall_data['normal'][1],
                              head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
                     normal_added = True
-
         # Visualize openings
         if viz_openings:
             opening_nodes = [n for n, d in graphs.nodes(data=True) if 'door' in d['type'] or 'window' in d['type']]
             for idx, on in enumerate(opening_nodes):
                 opening_data = graphs.nodes[on]
-                ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening' if not legend_added and idx == 0 else "")
-                if viz_normals:
-                    ax.arrow(opening_data['center'][0], opening_data['center'][1],
-                             opening_data['normal'][0], opening_data['normal'][1],
-                             head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
-                    normal_added = True
+                opening_polygon = Polygon(opening_data['polygon'])
+                x, y = opening_polygon.exterior.xy
+                ax.plot(x, y, color='orange', label='Opening polygon' if not legend_added and idx == 0 else "")
+
+            # Draw opening centroids
+            ax.scatter(opening_data['center'][0], opening_data['center'][1], color='orange', s=50, label='Opening centroid' if not legend_added and idx == 0 else "")
+            if viz_normals:
+                ax.arrow(opening_data['center'][0], opening_data['center'][1],
+                    opening_data['normal'][0], opening_data['normal'][1],
+                    head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
+                normal_added = True
 
         # Visualize wall edges
         if viz_walls:
@@ -191,7 +195,7 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_walls=True, viz_openings=False
                 end_node = graphs.nodes[edge[1]]
                 ax.plot([start_node['center'][0], end_node['center'][0]],
                     [start_node['center'][1], end_node['center'][1]],
-                    color='blue', linestyle='--', label='Opening edge' if not legend_added and idx == 0 else "")
+                    color='orange', linestyle='--', label='Opening edge' if not legend_added and idx == 0 else "")
 
         # Visualize connection edges
         if viz_room_connection:
@@ -201,7 +205,7 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_walls=True, viz_openings=False
                 end_node = graphs.nodes[edge[1]]
                 ax.plot([start_node['center'][0], end_node['center'][0]],
                         [start_node['center'][1], end_node['center'][1]],
-                        color='purple', linestyle='-', label='Connection edge' if not legend_added and idx == 0 else "")
+                        color='blue', linestyle='-', label='Connection edge' if not legend_added and idx == 0 else "")
 
         legend_added = True  # Set the flag to True after processing the first graph
 
