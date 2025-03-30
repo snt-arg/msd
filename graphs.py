@@ -19,74 +19,74 @@ def polygon_to_array(polygon: Polygon) -> np.array:
     return np.array(polygon_to_list(polygon))
 
 
-def extract_access_graph(geoms, geoms_type, classes, id):
-    """Extracts the access graph from a set of geometries."""
+# def extract_access_graph(geoms, geoms_type, classes, id):
+#     """Extracts the access graph from a set of geometries."""
 
-    # Sets the mapping
-    mapping = {cat: index for index, cat in enumerate(classes)}
+#     # Sets the mapping
+#     mapping = {cat: index for index, cat in enumerate(classes)}
 
-    # Initializes and separate areas (and types), doors, and entrance doors
-    areas, areas_type, doors, entrance_doors = [], [], [], []
+#     # Initializes and separate areas (and types), doors, and entrance doors
+#     areas, areas_type, doors, entrance_doors = [], [], [], []
 
-    # Makes sure to only have {Zone1, Zone2, Zone3, Zone4} in areas
-    end = 4 if 'Zone1' in classes else 9
-    for geom, geom_type in zip(geoms, geoms_type):
-        if geom_type == 'Door':
-            doors.append(geom)
-        elif geom_type == 'Entrance Door':
-            entrance_doors.append(geom)
-        elif geom_type in classes[:end]:
-            areas.append(geom)
-            areas_type.append(geom_type)
-        else: continue  # walls are omitted
+#     # Makes sure to only have {Zone1, Zone2, Zone3, Zone4} in areas
+#     end = 4 if 'Zone1' in classes else 9
+#     for geom, geom_type in zip(geoms, geoms_type):
+#         if geom_type == 'Door':
+#             doors.append(geom)
+#         elif geom_type == 'Entrance Door':
+#             entrance_doors.append(geom)
+#         elif geom_type in classes[:end]:
+#             areas.append(geom)
+#             areas_type.append(geom_type)
+#         else: continue  # walls are omitted
 
-    # Accumulate nodes
-    area_nodes = {}
-    for key, (area, area_type) in enumerate(zip(areas, areas_type)):
+#     # Accumulate nodes
+#     area_nodes = {}
+#     for key, (area, area_type) in enumerate(zip(areas, areas_type)):
 
-        # Zoning (input) graph node attributes
-        if 'Zone1' in classes:
-            area_nodes[key] = {
-                'zoning_type': mapping[area_type]
-            }
-        # Full (output) graph attributes
-        else:
-            area_nodes[key] = {
-                'geometry': polygon_to_list(area),
-                'room_type': mapping[area_type],
-                'centroid': torch.tensor(np.array([area.centroid.x, area.centroid.y]))
-            }
+#         # Zoning (input) graph node attributes
+#         if 'Zone1' in classes:
+#             area_nodes[key] = {
+#                 'zoning_type': mapping[area_type]
+#             }
+#         # Full (output) graph attributes
+#         else:
+#             area_nodes[key] = {
+#                 'geometry': polygon_to_list(area),
+#                 'room_type': mapping[area_type],
+#                 'centroid': torch.tensor(np.array([area.centroid.x, area.centroid.y]))
+#             }
 
-    # Accumulate edges
-    edges = []
-    for (i, v1), (j, v2) in combinations(enumerate(areas), 2):
+#     # Accumulate edges
+#     edges = []
+#     for (i, v1), (j, v2) in combinations(enumerate(areas), 2):
 
-        # Option 1: PASSAGE (direct access := no wall in between)
-        if v1.distance(v2) < 0.04:
-            edges.append([i, j, {'connectivity': 'passage'}])
+#         # Option 1: PASSAGE (direct access := no wall in between)
+#         if v1.distance(v2) < 0.04:
+#             edges.append([i, j, {'connectivity': 'passage'}])
 
-        # Option 2: DOOR
-        else:
-            for door in doors:
-                if door.distance(v1) < 0.05 and door.distance(v2) < 0.05:
-                    # Adds the geometry of the door as well (slightly different from paper)
-                    edges.append([i, j, {'connectivity': 'door'}])  #, 'door_geometry': polygon_to_list(door)}])
-                else: continue
+#         # Option 2: DOOR
+#         else:
+#             for door in doors:
+#                 if door.distance(v1) < 0.05 and door.distance(v2) < 0.05:
+#                     # Adds the geometry of the door as well (slightly different from paper)
+#                     edges.append([i, j, {'connectivity': 'door'}])  #, 'door_geometry': polygon_to_list(door)}])
+#                 else: continue
 
-        # Option 3: FRONT DOOR
-        for entrance_door in entrance_doors:
-            if entrance_door.distance(v1) < 0.05 and entrance_door.distance(v2) < 0.05:
-                # Adds the geometry of the door as well (slightly different from paper)
-                edges.append([i, j, {'connectivity': 'entrance'}])  #, 'door_geometry': polygon_to_list(entrance_door)}])
-            else: continue
+#         # Option 3: FRONT DOOR
+#         for entrance_door in entrance_doors:
+#             if entrance_door.distance(v1) < 0.05 and entrance_door.distance(v2) < 0.05:
+#                 # Adds the geometry of the door as well (slightly different from paper)
+#                 edges.append([i, j, {'connectivity': 'entrance'}])  #, 'door_geometry': polygon_to_list(entrance_door)}])
+#             else: continue
 
-    # Defines the graph
-    G = nx.Graph()
-    G.graph["ID"] = id  # Give the floor ID as graph attribute
-    G.add_nodes_from([(u, v) for u, v in area_nodes.items()])
-    G.add_edges_from(edges)
+#     # Defines the graph
+#     G = nx.Graph()
+#     G.graph["ID"] = id  # Give the floor ID as graph attribute
+#     G.add_nodes_from([(u, v) for u, v in area_nodes.items()])
+#     G.add_edges_from(edges)
 
-    return G
+#     return G
 
 
 def get_geometries_from_id(df, floor_id, apartment_id=None, column='roomtype'):
@@ -229,11 +229,11 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
     # Add edges between consecutive segments and the room centroid
     for i in range(len(node_ids) - 1):
         G.add_edge(node_ids[i], node_ids[i + 1], type='ws_same_room')
-        G.add_edge(node_ids[i], room_id, type='ws_belong_room')
+        G.add_edge(node_ids[i], room_id, type='ws_belongs_room')
 
     # Close the loop by connecting last to first
     G.add_edge(node_ids[-1], node_ids[0], type='ws_same_room')
-    G.add_edge(node_ids[-1], room_id, type='ws_belong_room')
+    G.add_edge(node_ids[-1], room_id, type='ws_belongs_room')
 
     return
 
@@ -269,7 +269,7 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
 
             opening_id = f"{floor_id}_{apartment_id}_{opening_type}_{idx}"
             
-            # Set norm z = 1 to force the difference from other nodes 
+            # Set norm z = 1 to force the difference from other ws nodes 
             G.add_node(opening_id, polygon = polygon_to_list(polygon), center=[polygon.centroid.x, polygon.centroid.y, z],
                         normal=[0, 0, 1], type=opening_type)
 
@@ -310,12 +310,12 @@ def add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, 
                     node_ids.append(node_id)
 
                     G.add_node(node_id, geom=[p1,p2], polygon = polygon_to_list(Polygon([p1, p2, p2 + [0, 0.01], p1 + [0, 0.01]])),
-                                center=midpoint_3d.tolist(), normal=normal_3d, width=width,  type=opening_type, category=9)
+                                center=midpoint_3d.tolist(), normal=normal_3d, width=width,  type=f"{opening_type}_ws", category=9)
 
             # Add edges to the room centroid
             for node_id in node_ids:
-                G.add_edge(node_id, room_id, type=f'{opening_type}_belong_room')
-                G.add_edge(node_id, opening_id, type=f'ws_belong_{opening_type}')
+                G.add_edge(node_id, room_id, type=f"{opening_type}_belongs_room")
+                G.add_edge(node_id, opening_id, type=f"ws_belongs_{opening_type}")
     
     # Process doors if not empty
     if doors:
@@ -397,160 +397,95 @@ def rotate_rectangle(rect: Polygon, scale_factor=0.5, angle=90):
 
     return rotated_rect
 
-def extract_a_graph(geoms, cats, names, apartment_id, floor_id):
-    """Extracts the access graph from a set of geometries."""
-
-    # Sets the mapping
-    mapping_names = {cat: i for i, cat in enumerate(names)}
-
-    # Initializes empty lists for rooms and their categories, doors, and walls
-    rooms, room_cats, doors, entrances, walls, windows = [], [], [], [], [], []
-
-    # Loops through the geometries and corresponding categories
-    for geom, cat in zip(geoms, cats):
-        if cat ==  'Door':  # Doors
-            doors.append(geom)
-        elif cat ==  'Entrance Door':  # Entrances
-            doors.append(geom)
-            entrances.append(geom)
-        elif cat in names[:9]:  # Rooms
-            rooms.append(geom)
-            room_cats.append(cat)
-        elif cat == 'Structure':  # Walls and columns
-            walls.append(geom)
-        elif cat == 'Window': # Windows
-            windows.append(geom)
-        else: continue
-
-    # Accumulation of NODES (i.e., the rooms)
-    anodes = {}
-    aedges = []
-
-    number_of_rooms = len(rooms)
-    walls_start_index = number_of_rooms
-    
-    for key, (room, cat) in enumerate(zip(rooms, room_cats)):
-        
-        points = polygon_to_list(room)
-        centroid = np.array([room.centroid.x, room.centroid.y])
-        
-        #add categoy, type and centroid to anode
-        anodes[key] = {
-            'polygon': points,
-            'category': mapping_names[cat],
-            'type': 'room',
-            'centroid': torch.tensor(centroid),
-            'normal': np.array([0, 0])
-        }
-
-        
-        # for each wall calculate the mid point and the normal vector
-        for j in range(len(points)-1):
-        
-            # mid point
-            x = (points[j][0]+points[j+1][0])/2
-            y = (points[j][1]+points[j+1][1])/2
-            # normal vector
-            normalx = x - centroid[0]
-            normaly = y - centroid[1]
-
-            # normalize the normal vector 
-            if(abs(normalx) > abs(normaly)):
-                normalx = 1
-                normaly = 0
-            else:
-                normalx = 0
-                normaly = 1
-                
-            # add wall to anodes
-            anodes[walls_start_index + j] = {
-                'polygon': [],
-                'category': mapping_names[cat],
-                'type': 'wall',
-                'centroid': torch.tensor(np.array([x, y])),
-                'normal': np.array([normalx, normaly])
-            }
-
-        walls_end_index = walls_start_index + len(points)-1
-    
-        # for each wall nodes create an edge with the room node and with the next wall node
-        for i in range(walls_start_index, walls_end_index):
-            aedges.append([i, key, {'type' : 'ws_belongs_room'}])
-            aedges.append([i, i+1, {'type' : 'ws_same_room'}])
-
-        walls_start_index = walls_end_index
-
-    # Accumulation of EDGES (i.e., room to room connectivity)
-    for (i, v1), (j, v2) in combinations(enumerate(rooms), 2):
-
-        # (Option 1) Passage (i.e., direct access := no wall in between)
-        if v1.distance(v2) < 0.04:
-            aedges.append([i, j, {'polygon': None, 'connectivity': 'passage'}])
-        
-        # TODO connect rooms through doors and windows nodes
-        # (Option 2) Door (i.e., door in between two rooms)
-        else:
-            edge = False
-            for door in doors + entrances:
-                door_rotated = rotate_rectangle(door, scale_factor=1)
-                if door_rotated.intersection(v1) and door_rotated.intersection(v2):
-                    # Adds the geometry of the door as well (slightly different from paper)
-                    edge = True
-                    aedges.append([i, j, {'polygon': polygon_to_list(door), 'connectivity': 'door'}])
-                else: continue
-
-            # (Option 2B) By window (i.e., window between balcony and other room)
-            # Sometimes, balconies seem disconnected from the apartment (fully).
-            # This is likely not the case. So, if a balcony connects with one of the other rooms
-            # through a window it is fine as well.
-            if not edge and (room_cats[i] == "Balcony" or room_cats[j] == "Balcony"):
-                # Check connection based on window overlap
-                for window in windows:
-                    window_rotated = rotate_rectangle(window)
-                    if window_rotated.intersection(v1) and window_rotated.intersection(v2):
-                        aedges.append([i, j, {'polygon': polygon_to_list(window), 'connectivity': 'door'}])
-                    else: continue
-
-    # Get tightest boundary of the apartment
-    # (1) Unite all these wall geometries
-    # (2) Find the polygon within the union that is largest in terms of area (using np.argsort)
-    #   and choose the largest (which is by default put on the end of the sort)
-    structure = unary_union(walls)  # (1)
-    if structure.geom_type == "MultiPolygon":
-        boundary = structure.geoms[np.argsort([geom.area for geom in structure.geoms])[-1]]  # (2)
-    elif structure.geom_type == "Polygon":
-        boundary = deepcopy(structure)
-    else:
-        raise NotImplementedError(f"Not implemented for {structure.geom_type}.")
-
-    #add anodes and aedges to the A graph
-    AG = nx.Graph()
-    # Graph attributes / features
-    AG.graph["Floor ID"] = floor_id  # Floor ID
-    AG.graph["Apt ID"] = apartment_id  # Apartment ID (i.e., name)
-    AG.graph["Structure"] = walls  # Walls and columns
-    AG.graph["Windows"] = windows  # Windows
-    AG.graph["Entrances"] = entrances  # Entrances (doors)
-    # Node attributes / features
-    AG.add_nodes_from([(u, v) for u, v in anodes.items()])
-    # Edge attributes / features
-    AG.add_edges_from(aedges)
-
-    return AG
-
 def connect_area_by_openings(graph,apartment_id):
     for opening in ["door", "window"]:
-        # Extract unique opening IDs
+        # Extract unique opening IDs, ei. 'window_1', 'window_0'
         ids = list(set(v.split("_")[2] + "_" + v.split("_")[3] 
                        for u, v in graph.edges() if opening in u or opening in v))
+        print(f"Opening IDs: {ids}")
 
         for id in ids:
+        
             # Find areas connected by the current opening
             connected_areas = [u.split("_")[2] + "_" + u.split("_")[3] 
-                               for u, v in graph.edges() if id in u or id in v]
+                               for u, v in graph.edges() if (id in u or id in v) and not (id in v and id in u)]
+
+            print(f"Connected areas for opening {id}: {connected_areas}")
 
             # Create edges between all pairs of connected areas
             for i, j in combinations(connected_areas, 2):
                 room1 = apartment_id + "_" + i + "_centroid"
                 room2 = apartment_id + "_" + j + "_centroid"
                 graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
+
+
+
+def extract_access_graph(geoms, cats, elevations, heights, names, apartment_id, floor_id):
+    """Extracts the access graph from a set of apartment."""
+
+    # Defines the graph
+    G = nx.Graph()
+
+    # Sets the mapping
+    mapping_names = {cat: i for i, cat in enumerate(names)}
+
+    # Initializes empty lists for rooms and their categories, doors, and walls
+    rooms, room_cats, doors, entrances, walls, windows = [], [], [], [], [], []
+    room_z, doors_z, entrances_z, walls_z, windows_z = [], [], [], [], []
+
+    # Loops through the geometries and corresponding categories
+    for geom, cat, height in zip(geoms, cats, heights):
+
+        # Add z-coordinate to the geometry
+        z_coord = height / 2
+
+        if cat == 'Door':  # Doors
+            doors.append(geom)
+            doors_z.append(z_coord)
+        elif cat == 'Entrance Door':  # Entrances
+            doors.append(geom)
+            doors_z.append(z_coord)
+            entrances.append(geom)
+            entrances_z.append(z_coord)
+        elif cat in names[:9]:  # Rooms
+            rooms.append(geom)
+            room_z.append(z_coord)
+            room_cats.append(cat)
+        elif cat == 'Structure':  # Walls and columns
+            walls.append(geom)
+            walls_z.append(z_coord)
+        elif cat == 'Window':  # Windows
+            windows.append(geom)
+            windows_z.append(z_coord)
+        else:
+            continue
+
+
+    for key, (room, cat, z) in enumerate(zip(rooms, room_cats, room_z)):
+        # for each room in the apartment
+
+        # create dict for room, cat, and z
+        room_dict = {
+            'geom': room,
+            'entity_subtype': cat,
+            'category': mapping_names[cat],
+            'z': z
+        }
+
+        # search for intersections with openings
+        wall_indexes, door_indexes, window_indexes = ut.find_intersections(room, walls, doors, windows)
+
+        gr.add_room_geometries(room_dict, floor_id, apartment_id, key, G)
+
+        gr.add_opening_geometry(doors, windows, door_indexes, window_indexes, doors_z, windows_z, room_dict, floor_id, apartment_id, key, G)
+            
+    gr.connect_area_by_openings(G, str(str(floor_id) + "_" + str(apartment_id)))
+
+    # Graph attributes / features
+    G.graph["Floor ID"] = floor_id  # Floor ID
+    G.graph["Apt ID"] = apartment_id  # Apartment ID (i.e., name)
+    G.graph["Structure"] = walls  # Walls and columns
+    G.graph["Windows"] = windows  # Windows
+    G.graph["Entrances"] = entrances  # Entrances (doors)
+    
+    return G
