@@ -136,6 +136,9 @@ def add_room_geometries(geom_dict, floor_id, apartment_id, key, G, epsilon=1e-3)
         # Edge vector
         edge_vec = p2 - p1
 
+        if width == 0:
+            continue
+
         # Perpendicular normal
         normal = np.array([-edge_vec[1], edge_vec[0]])
         normal /= np.linalg.norm(normal)
@@ -217,6 +220,9 @@ def add_other_geometry(doors, windows, walls, door_indexes, window_indexes, wall
 
                 # calculate euclidean distance
                 width = np.linalg.norm(p2 - p1)
+
+                if width == 0:
+                    continue
 
                 # Edge vector
                 edge_vec = p2 - p1
@@ -349,11 +355,19 @@ def connect_area_by_openings(graph,apartment_id):
 
             # print(f"Connected areas for opening {id}: {connected_areas}")
 
-            # Create edges between all pairs of connected areas
-            for i, j in combinations(connected_areas, 2):
-                room1 = apartment_id + "_" + i + "_centroid"
-                room2 = apartment_id + "_" + j + "_centroid"
+            # assume an opening can connect only 2 areas
+            if len(connected_areas) == 2:
+                room1 = apartment_id + "_" + connected_areas[0] + "_centroid"
+                room2 = apartment_id + "_" + connected_areas[1] + "_centroid"
                 graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
+            else:
+                print(f"Warning: More than 2 areas connected by opening {id}: {connected_areas}")
+           
+            # # Create edges between all pairs of connected areas
+            # for i, j in combinations(connected_areas, 2):
+            #     room1 = apartment_id + "_" + i + "_centroid"
+            #     room2 = apartment_id + "_" + j + "_centroid"
+            #     graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
 
 
 def extract_access_graph(geoms, cats, elevations, heights, names, apartment_id, floor_id):
