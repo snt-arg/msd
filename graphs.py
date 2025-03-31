@@ -340,109 +340,78 @@ def rotate_rectangle(rect: Polygon, scale_factor=0.5, angle=90):
 
     return rotated_rect
 
+#Not working good
 def connect_area_by_openings(graph,apartment_id):
-    for opening in ["door", "window"]:
-        # Extract unique opening IDs, ei. 'window_1', 'window_0'
+    for opening in ["door"]:
+        # Extract unique opening IDs, ei. 'door_1', 'door_0'
         ids = list(set(v.split("_")[2] + "_" + v.split("_")[3] 
                        for u, v in graph.edges() if opening in u or opening in v))
-        # print(f"Opening IDs: {ids}")
+        print(f"Opening IDs: {ids}")
 
         for id in ids:
         
             # Find areas connected by the current opening
             connected_areas = [u.split("_")[2] + "_" + u.split("_")[3] 
                                for u, v in graph.edges() if (id in u or id in v) and not (id in v and id in u)]
-
-            # print(f"Connected areas for opening {id}: {connected_areas}")
+            # Remove duplicates
+            connected_areas = list(set(connected_areas))
+            
+            print(f"Connected areas for opening {id}:{connected_areas}")
 
             # assume an opening can connect only 2 areas
             if len(connected_areas) == 2:
                 room1 = apartment_id + "_" + connected_areas[0] + "_centroid"
                 room2 = apartment_id + "_" + connected_areas[1] + "_centroid"
                 graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
+            elif len(connected_areas) < 2:
+                continue
             else:
                 print(f"Warning: More than 2 areas connected by opening {id}: {connected_areas}")
-           
-            # # Create edges between all pairs of connected areas
-            # for i, j in combinations(connected_areas, 2):
-            #     room1 = apartment_id + "_" + i + "_centroid"
-            #     room2 = apartment_id + "_" + j + "_centroid"
-            #     graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
+                # Create edges between all pairs of connected areas
+                for i, j in combinations(connected_areas, 2):
+                    room1 = apartment_id + "_" + i + "_centroid"
+                    room2 = apartment_id + "_" + j + "_centroid"
+                    graph.add_edge(room1, room2, type=f"connected_by_{opening}", opening=id)
 
+def connect_rooms_by_proximity(G, doors, entrances, windows):
+    """
+    Connects room nodes in the graph based on proximity or openings (doors/windows).
 
-def extract_access_graph(geoms, cats, elevations, heights, names, apartment_id, floor_id):
-    """Extracts the access graph from a set of apartment."""
+    Input:
+        G: The graph containing room nodes.
+        apartment_id: The ID of the apartment.
+        doors: List of door geometries.
+        entrances: List of entrance geometries.
+        windows: List of window geometries.
+    """
+    # Extract all room nodes
+    room_nodes = [n for n, attr in G.nodes(data=True) if attr.get('type') == 'room']
 
-    # Defines the graph
-    G = nx.Graph()
+    # Iterate over all pairs of room nodes
+    for i, j in combinations(room_nodes, 2):
+        v1 = Polygon(G.nodes[i]['polygon'])
+        v2 = Polygon(G.nodes[j]['polygon'])
 
-    # Sets the mapping
-    mapping_names = {cat: i for i, cat in enumerate(names)}
+        # (Option 1) Passage (direct access, no wall in between)
+        if v1.distance(v2) < 0.04:
+            G.add_edge(i, j, type=f"connected_by_passage", opening='passage')
 
-    # Initializes empty lists for rooms and their categories, doors, and walls
-    rooms, room_cats, doors, entrances, walls, windows = [], [], [], [], [], []
-    room_z, doors_z, entrances_z, walls_z, windows_z = [], [], [], [], []
-
-    # Loops through the geometries and corresponding categories
-    for geom, cat, height in zip(geoms, cats, heights):
-
-        # Add z-coordinate to the geometry
-        z_coord = height / 2
-
-        if cat == 'Door':  # Doors
-            doors.append(geom)
-            doors_z.append(z_coord)
-        elif cat == 'Entrance Door':  # Entrances
-            doors.append(geom)
-            doors_z.append(z_coord)
-            entrances.append(geom)
-            entrances_z.append(z_coord)
-        elif cat in names[:9]:  # Rooms
-            rooms.append(geom)
-            room_z.append(z_coord)
-            room_cats.append(cat)
-        elif cat == 'Structure':  # Walls and columns
-            walls.append(geom)
-            walls_z.append(z_coord)
-        elif cat == 'Window':  # Windows
-            windows.append(geom)
-            windows_z.append(z_coord)
+        # (Option 2) Door (door in between two rooms)
         else:
-            continue
+            edge = False
+            for door in doors + entrances:
+                door_rotated = rotate_rectangle(door, scale_factor=1)
+                if door_rotated.intersection(v1) and door_rotated.intersection(v2):
+                    edge = True
+                    G.add_edge(i, j, type=f"connected_by_door", opening='door')
+                else:
+                    continue
 
-    for key, (room, cat, z) in enumerate(zip(rooms, room_cats, room_z)):
-        # for each room in the apartment
-
-        # create dict for room, cat, and z
-        room_dict = {
-            'geom': room,
-            'entity_subtype': cat,
-            'category': mapping_names[cat],
-            'z': z
-        }
-
-        # search for intersections with openings
-        wall_indexes, door_indexes, window_indexes = ut.find_intersections(room, walls, doors, windows)
-
-        add_room_geometries(room_dict, floor_id, apartment_id, key, G)
-
-        add_other_geometry(doors, windows, walls, door_indexes, window_indexes, wall_indexes, doors_z, windows_z, walls_z, room_dict, floor_id, apartment_id, key, G)
-            
-    connect_area_by_openings(G, str(str(floor_id) + "_" + str(apartment_id)))
-
-    # # Security checks
-    # # #Drop empty nodes
-    # nodes_without_data = [n for n, attr in G.nodes(data=True) if not attr]
-    # G.remove_nodes_from(nodes_without_data)
-    # # #Drop isolated nodes
-    # isolated_nodes = list(nx.isolates(G))
-    # G.remove_nodes_from(isolated_nodes)
-
-    # Graph attributes / features
-    G.graph["Floor ID"] = floor_id  # Floor ID
-    G.graph["Apt ID"] = apartment_id  # Apartment ID (i.e., name)
-    G.graph["Structure"] = walls  # Walls and columns
-    G.graph["Windows"] = windows  # Windows
-    G.graph["Entrances"] = entrances  # Entrances (doors)
-    
-    return G
+            # (Option 2B) By window (window between balcony and other room)
+            if not edge and (G.nodes[i].get('category_letter') == "Balcony" or G.nodes[j].get('category_letter') == "Balcony"):
+                for window in windows:
+                    window_rotated = rotate_rectangle(window)
+                    if window_rotated.intersection(v1) and window_rotated.intersection(v2):
+                        G.add_edge(i, j, type=f"connected_by_window", opening='window')
+                    else:
+                        continue
