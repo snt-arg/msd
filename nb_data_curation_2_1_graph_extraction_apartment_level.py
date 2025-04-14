@@ -70,7 +70,7 @@ floor_DF = DF[DF.floor_id == floor_ids[1]]
 floor_DF['geom'] = floor_DF['geom'].apply(wkt.loads)  # Convert WKT strings to Shapely geometry objects
 floor_DF = floor_DF.set_geometry('geom')
 
-pl.plot_DF_geometries(floor_DF)
+# pl.plot_DF_geometries(floor_DF)
 
 """To get an idea of the information within the dataframe, let's show the top (`.head`) of it.
 Note that many of the columns from the *Swiss Dwellings* dataset ($\longrightarrow$ [Swiss Dwellings](https://zenodo.org/records/7788422)) are removed, to reduce clutter.
@@ -622,12 +622,12 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_ws=True, viz_openings=False, v
     plt.legend()
     plt.show()
 
-plot_a_graph([partial_graphs[0][0]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
-plot_a_graph([partial_graphs[0][1]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
-plot_a_graph([partial_graphs[0][2]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
-plot_a_graph([graphs[0]], viz_openings=False, viz_room_connection=True, viz_normals=True, viz_ws=True, viz_walls=True)
+# plot_a_graph([partial_graphs[0][0]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
+# plot_a_graph([partial_graphs[0][1]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
+# plot_a_graph([partial_graphs[0][2]], viz_ws=True, viz_openings=False, viz_room_connection=True, viz_room_normals=True, viz_walls=True)
+# plot_a_graph([graphs[0]], viz_openings=False, viz_room_connection=True, viz_normals=True, viz_ws=True, viz_walls=True)
 
-plot_a_graph(graphs, viz_ws=False)
+# plot_a_graph(graphs, viz_ws=False)
 
 """Now, we can loop over all floor and extract the apartment graphs from them."""
 
@@ -652,7 +652,7 @@ N_partial_graphs = get_partial_graph_counts(partial_graphs)
 print(f"Number of apartments:\t{len(partial_graphs)}")
 print(f"Number of partial graphs:\t{N_partial_graphs}")
 res = [partial_graphs[4][5]]
-plot_a_graph(res)
+# plot_a_graph(res)
 
 """It takes quite a while to extract all the graphs.
 You can also do it for the first 50 floor plans to check the code, like we do in the following block:
@@ -700,8 +700,8 @@ for floor_id in floor_ids[:20]:
 
 N_partial_graphs = get_partial_graph_counts(partial_graphs)
 
-plot_a_graph([graphs[12]], viz_ws=False,viz_openings=True)
-plot_a_graph([graphs[16]], viz_ws=False,viz_openings=True)
+# plot_a_graph([graphs[12]], viz_ws=False,viz_openings=True)
+# plot_a_graph([graphs[16]], viz_ws=False,viz_openings=True)
 
 # Saves graphs
 # save_pickle(graphs, '/content/drive/MyDrive/Colab Notebooks/Data/MSD Dump/MSD - Some Apartment-Level Graphs.pickle')
@@ -790,6 +790,8 @@ for floor_id in floor_ids:
 
     clear_output(wait=True)
     print(f"Apartments done: {len(graphs)} / {N_apartments}")
+    if len(graphs) >= 5000:
+        break
 
 N_partial_graphs = get_partial_graph_counts(partial_graphs)
 
@@ -813,7 +815,7 @@ print("Sampled index:", sample_indexes)
 for i in sample_indexes:
     graph_length = N_partial_graphs[i] - 1
     graph_list = [partial_graphs[i][graph_length]]
-    plot_a_graph(graph_list, viz_openings=True)
+    # plot_a_graph(graph_list, viz_openings=True)
 
 """While many of the floor plans are great, there are many that are not really informative, such as:
 
@@ -914,7 +916,7 @@ print("Sampled index:", sample_indexes)
 for i in sample_indexes:
     graph_length = graphs_dim[i] - 1
     graph_list = [partials_graphs_subset[i][graph_length]]
-    plot_a_graph(graph_list, viz_openings=True)
+    # plot_a_graph(graph_list, viz_openings=True)
 
 """Let's save this 'cleaned' dataset as well:"""
 
