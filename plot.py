@@ -143,7 +143,7 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_ws=True, viz_openings=False, v
                 # Plot the polygon
                 room_polygon = Polygon(room_data['polygon'])
                 x, y = room_polygon.exterior.xy
-                ax.plot(x, y, color='black', label='Room polygon' if not legend_added and idx == 0 else "")
+                ax.plot(x, y, color='black', alpha=0.2, label='Room polygon' if not legend_added and idx == 0 else "")
                 # Draw room centroids
                 ax.scatter(room_data['center'][0], room_data['center'][1], color='blue', s=100, label='Room centroid' if not legend_added and idx == 0 else "")
 
@@ -217,7 +217,12 @@ def plot_a_graph(graphs_list, viz_rooms=True, viz_ws=True, viz_openings=False, v
                              ws_data['normal'][0], ws_data['normal'][1],
                              head_width=0.1, head_length=0.1, fc='green', ec='green', label='Normal' if not normal_added else "")
                     normal_added = True
-
+                if 'limits' in ws_data:
+                    limit_1, limit_2 = ws_data['limits']
+                    ax.plot([limit_1[0], limit_2[0]],
+                            [limit_1[1], limit_2[1]],
+                            color='black', linewidth=1.0,
+                            label='Ws limits' if idx == 0 else "")
             ws_edges = [(u, v) for u, v, d in graphs.edges(data=True) if 'ws_same_room' in d['type'] or 'ws_belongs_room' in d['type']]
             for idx, edge in enumerate(ws_edges):
                 start_node = graphs.nodes[edge[0]]
